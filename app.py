@@ -67,7 +67,7 @@ with st.sidebar:
     gender = st.radio("เพศ", ["ชาย", "หญิง"])
     plan_choice = st.selectbox("เลือกแผนประกันภัย", list(PLAN_BENEFITS.keys()))
     submit = st.button("แสดงรายละเอียดและคำนวณเบี้ย")
-
+    st.write("สนใจคำแนะนำเพิ่มเติม ติดต่อ มีน โทร 086-5348448")
 if submit:
     col1, col2 = st.columns([1, 1.5])
     
@@ -92,3 +92,4 @@ if submit:
     # ตรวจสอบเงื่อนไขอายุตามแผน
     if plan_choice == "AIANPA3800" and age < 16:
         st.error("⚠️ แผน AIANPA3800 รับประกันที่อายุ 16 ปีขึ้นไปเท่านั้น")
+
