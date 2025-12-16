@@ -62,7 +62,7 @@ def get_premium(plan, age):
 # --- ส่วน UI ---
 with st.sidebar:
     st.header("กรอกข้อมูลผู้ขอเอาประกัน")
-    name = st.text_input("ชื่อ-นามสกุล", placeholder="สมชาย ใจดี")
+    name = st.text_input("ชื่อ-นามสกุล", placeholder="กุลสตรี เสนาปิน")
     age = st.number_input("อายุ (ปี)", min_value=0, max_value=75, value=25)
     gender = st.radio("เพศ", ["ชาย", "หญิง"])
     plan_choice = st.selectbox("เลือกแผนประกันภัย", list(PLAN_BENEFITS.keys()))
@@ -92,4 +92,5 @@ if submit:
     # ตรวจสอบเงื่อนไขอายุตามแผน
     if plan_choice == "AIANPA3800" and age < 16:
         st.error("⚠️ แผน AIANPA3800 รับประกันที่อายุ 16 ปีขึ้นไปเท่านั้น")
+
 
