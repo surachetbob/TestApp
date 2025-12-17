@@ -1,7 +1,13 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+from datetime import datetime
 
 # 1. ตั้งค่า Layout เป็น Centered
 st.set_page_config(page_title="PA Insurance Calculator", layout="centered")
+
+# เชื่อมต่อกับ Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # CSS สำหรับปรับปรุง UI
 st.markdown("""
@@ -102,7 +108,28 @@ if submit:
         
         # คำนวณเบี้ย
         premium = get_premium(plan_choice, age)
-        
+        # --- ส่วนการบันทึกข้อมูลลง Google Sheets ---
+        try:
+            # สร้าง DataFrame สำหรับข้อมูลใหม่
+            new_data = pd.DataFrame([{
+                "วันที่บันทึก": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "ชื่อ-นามสกุล": name,
+                "เบอร์โทร": phone,
+                "อายุ": age,
+                "เพศ": gender,
+                "แผนที่เลือก": plan_choice,
+                "เบี้ยประกัน": premium
+            }])
+
+            # อ่านข้อมูลเดิมและ Append ข้อมูลใหม่ (ถ้ามีไฟล์อยู่แล้ว)
+            existing_data = conn.read(worksheet="Sheet1", ttl=0) # ttl=0 เพื่อให้อ่านสดทุกครั้ง
+            updated_df = pd.concat([existing_data, new_data], ignore_index=True)
+            
+            # อัปเดตกลับไปยัง Google Sheet
+            conn.update(worksheet="Sheet1", data=updated_df)
+            
+            st.success("✅ บันทึกข้อมูลเรียบร้อยแล้ว!")
+            st.balloons()
         # แสดงผลเบี้ยประกัน
         st.balloons()
         st.markdown(f"""
@@ -129,3 +156,4 @@ if submit:
 
 else:
     st.info("💡 กรุณากรอกข้อมูลและกดปุ่มด้านบนเพื่อดูรายละเอียดความคุ้มครอง")
+
