@@ -65,9 +65,9 @@ st.title("📋 คำนวณเบี้ยประกันสุขภา�
 with st.container():
     col1, col2 = st.columns(2)
     with col1:
-        gender_input = st.selectbox("🚻 เพศ", ["ชาย", "หญิง"])
+        gender_input = st.selectbox(" เพศ", ["ชาย", "หญิง"])
     with col2:
-        age_input = st.number_input("🎂 อายุ (ปี)", min_value=11, max_value=98, value=30)
+        age_input = st.number_input(" อายุ (ปี)", min_value=11, max_value=98, value=30)
     
     plan_input = st.selectbox("📂 เลือกแผนประกันภัย", list(PLAN_DETAILS.keys()))
     
