@@ -1,86 +1,124 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from datetime import datetime
 
-st.set_page_config(page_title="PA Insurance Registration", layout="wide")
+# 1. ตั้งค่า Layout
+st.set_page_config(page_title="PA Insurance Calculator", layout="centered")
 
-# --- การเชื่อมต่อ Google Sheets ---
-# หมายเหตุ: ต้องตั้งค่า secrets ใน .streamlit/secrets.toml หรือบน Streamlit Cloud
+# เชื่อมต่อ Google Sheets (ต้องตั้งค่า URL ใน .streamlit/secrets.toml หรือใส่ตรงๆ เพื่อทดสอบ)
+# สำหรับการใช้งานจริงแนะนำให้ใส่ใน Secrets ของ Streamlit Cloud
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- ข้อมูลแผนประกันและเบี้ยประกัน (อ้างอิงจากรูปภาพ) ---
-def get_premium(plan, age, occupation_class):
-    # ตารางเบี้ยประกันสำหรับอาชีพชั้น 1 และ 2 ตามรูปภาพ
-    rates = {
-        "AIANPA2500": {
-            1: [(60, 2500), (65, 2700), (70, 3150), (75, 4000)],
-            2: [(60, 3050), (65, 3250), (70, 3700), (75, 4550)]
-        },
-        "AIANPA3000": {
-            1: [(60, 3000), (65, 3250), (70, 3750), (75, 4700)],
-            2: [(60, 3600), (65, 3850), (70, 4350), (75, 5300)]
-        },
-        "AIANPA3800": {
-            1: [(60, 3800), (65, 4600), (70, 5300), (75, 6770)],
-            2: [(60, 4700), (65, 5660), (70, 6290), (75, 7560)]
-        }
+# CSS สำหรับ UI
+st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+        width: 100%;
+        height: 50px;
+        font-size: 20px;
+        border-radius: 10px;
+        background-color: #ff4b4b;
+        color: white;
     }
+    </style>
+    """, unsafe_allow_html=True)
+
+PLAN_BENEFITS = {
+    "AIANPA2500": {
+        "เสียชีวิต/ทุพพลภาพ (AD,DD,PD)": "500,000",
+        "ค่ารักษาพยาบาล (ME)": "20,000",
+        "ช่วงอายุที่รับประกัน": "15 วัน - 70 ปี"
+    },
+    "AIANPA3000": {
+        "เสียชีวิต/ทุพพลภาพ (AD,DD,PD)": "600,000",
+        "ค่ารักษาพยาบาล (ME)": "35,000",
+        "ช่วงอายุที่รับประกัน": "15 วัน - 74 ปี"
+    },
+    "AIANPA3800": {
+        "เสียชีวิต/ทุพพลภาพ (AD,DD,PD)": "500,000",
+        "ค่ารักษาพยาบาล (ME)": "50,000",
+        "ช่วงอายุที่รับประกัน": "16 - 60 ปี"
+    }
+}
+
+def get_premium(plan, age):
+    if plan == "AIANPA2500":
+        if age <= 60: return 2500
+        elif age <= 65: return 2700
+        elif age <= 70: return 3150
+        elif age <= 75: return 4000
+    elif plan == "AIANPA3000":
+        if age <= 60: return 3000
+        elif age <= 65: return 3250
+        elif age <= 70: return 3750
+        elif age <= 75: return 4700
+    elif plan == "AIANPA3800":
+        if age <= 60: return 3800
+        elif age <= 65: return 4600
+        elif age <= 70: return 5300
+        elif age <= 75: return 6770
+    return 0
+
+# --- UI หลัก ---
+st.title("🛡️ เช็คเบี้ยและความคุ้มครอง")
+
+with st.expander("👤 กรอกข้อมูลผู้ขอเอาประกัน", expanded=True):
+    name = st.text_input("ชื่อ-นามสกุล")
+    phone = st.text_input("เบอร์โทรศัพท์", max_chars=10, help="กรอกเฉพาะตัวเลข 10 หลัก")
     
-    selected_rates = rates[plan][occupation_class]
-    for limit_age, price in selected_rates:
-        if age <= limit_age:
-            return price
-    return None
-
-st.title("🛡️ บันทึกข้อมูลผู้สนใจประกันอุบัติเหตุ")
-
-# --- ส่วนรับข้อมูล ---
-with st.form(key="insurance_form"):
-    col1, col2 = st.columns(2)
-    with col1:
-        name = st.text_input("ชื่อ-นามสกุล *")
-        tel = st.text_input("เบอร์โทรศัพท์ติดต่อกลับ *")
+    c1, c2 = st.columns(2)
+    with c1:
         age = st.number_input("อายุ (ปี)", min_value=0, max_value=75, value=25)
-    
-    with col2:
-        gender = st.radio("เพศ", ["ชาย", "หญิง"])
-        occ_class = st.selectbox("ชั้นอาชีพ", [1, 2], help="ชั้น 1: งานสำนักงาน / ชั้น 2: งานกลางแจ้งหรือใช้แรงงานบ้าง")
-        plan_choice = st.selectbox("เลือกแผนประกัน", ["AIANPA2500", "AIANPA3000", "AIANPA3800"])
-
-    submit_button = st.form_submit_button(label="บันทึกข้อมูลและส่งเรื่อง")
-
-# --- ส่วนบันทึกข้อมูลลง Google Sheets ---
-if submit_button:
-    if not name or not tel:
-        st.error("กรุณากรอกข้อมูล 'ชื่อ' และ 'เบอร์โทรศัพท์' ให้ครบถ้วน")
-    else:
-        premium = get_premium(plan_choice, age, occ_class)
+    with c2:
+        gender = st.selectbox("เพศ", ["ชาย", "หญิง"])
         
-        # จัดเตรียมข้อมูลในรูปแบบ DataFrame
-        new_data = pd.DataFrame([{
-            "ชื่อ-นามสกุล": name,
-            "เบอร์โทรศัพท์": tel,
-            "อายุ": age,
-            "เพศ": gender,
-            "ชั้นอาชีพ": occ_class,
-            "แผนประกัน": plan_choice,
-            "เบี้ยประกันรายปี": premium,
-            "วันที่บันทึก": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-        }])
+    plan_choice = st.selectbox("เลือกแผนประกันภัย", list(PLAN_BENEFITS.keys()))
+    submit = st.button("🚀 คำนวณเบี้ยและบันทึกข้อมูล")
 
+if submit:
+    if not name or not phone:
+        st.warning("⚠️ กรุณากรอกชื่อและเบอร์โทรศัพท์ให้ครบถ้วน")
+    else:
+        premium = get_premium(plan_choice, age)
+        
+        # --- บันทึกข้อมูลลง Google Sheet ---
         try:
-            # ดึงข้อมูลเดิมจาก Sheet มาก่อนเพื่อทำการ Append
-            existing_data = conn.read(worksheet="Sheet1", usecols=list(range(8)))
+            # ดึงข้อมูลเดิมที่มีอยู่
+            existing_data = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["spreadsheet"])
+            
+            # เตรียมข้อมูลใหม่
+            new_data = pd.DataFrame([{
+                "name": name,
+                "phone": f"'{phone}", # ใส่ ' นำหน้าเพื่อให้ Excel/Sheet ไม่ตัดเลข 0 ตัวแรก
+                "age": age,
+                "gender": gender,
+                "plan": plan_choice,
+                "premium": premium,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }])
+            
+            # รวมข้อมูลและอัปเดต
             updated_df = pd.concat([existing_data, new_data], ignore_index=True)
+            conn.update(spreadsheet=st.secrets["connections"]["gsheets"]["spreadsheet"], data=updated_df)
             
-            # อัปเดตกลับไปที่ Google Sheet
-            conn.update(worksheet="Sheet1", data=updated_df)
-            
-            st.success(f"✅ บันทึกข้อมูลคุณ {name} เรียบร้อยแล้ว! เจ้าหน้าที่จะติดต่อกลับที่เบอร์ {tel}")
-            st.balloons()
-            
-            # แสดงสรุปเบี้ยประกัน
-            st.info(f"แผนที่เลือก: {plan_choice} | เบี้ยประกันภัยสุทธิ: {premium:,} บาท")
-            
+            st.success("✅ บันทึกข้อมูลสนใจเรียบร้อยแล้ว!")
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets: {e}")
+            st.error(f"ไม่สามารถบันทึกข้อมูลได้: {e}")
+
+        # --- แสดงผล UI ---
+        st.divider()
+        st.balloons()
+        st.markdown(f"""
+            <div style="background-color:#f0f2f6; padding:20px; border-radius:10px; text-align:center;">
+                <h3 style="margin:0;">เบี้ยประกันภัยรายปี</h3>
+                <h1 style="color:#ff4b4b; margin:0;">{premium:,} บาท</h1>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.subheader(f"📋 ความคุ้มครอง {plan_choice}")
+        benefits = PLAN_BENEFITS[plan_choice]
+        benefit_data = [{"รายการ": k, "วงเงิน (บาท)": v} for k, v in benefits.items()]
+        st.dataframe(benefit_data, use_container_width=True, hide_index=True)
+
+        st.info("📞 **เจ้าหน้าที่จะติดต่อกลับที่เบอร์:** " + phone)
