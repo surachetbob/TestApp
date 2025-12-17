@@ -86,7 +86,7 @@ if calculate_btn:
         if premium:
             try:
                 new_lead = pd.DataFrame([{
-                    "วันที่": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "วันที่บันทึก": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "ชื่อ-นามสกุล": name_input,
                     "เบอร์โทร": phone_input,
                     "เพศ": gender_input,
